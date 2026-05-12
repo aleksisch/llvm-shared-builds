@@ -23,8 +23,8 @@ jobs:
             os: ubuntu-22.04
           - name: linux_arm64
             os: ubuntu-22.04-arm
-          - name: mac_64
-            os: macos-13
+          # - name: mac_64
+          #   os: macos-13   # Intel runner unavailable on free tier; needs macos-15-large (paid)
           - name: mac_arm64
             os: macos-14
           - name: win64
@@ -52,7 +52,9 @@ jobs:
           brew install llvm@${{ inputs.llvm_major }}
           PFX=$(brew --prefix llvm@${{ inputs.llvm_major }})
           cp "$PFX/lib/libLLVM.dylib" LLVM.dll
+          chmod u+w LLVM.dll
           strip -x LLVM.dll
+          codesign --force --sign - LLVM.dll  # re-sign after strip invalidated signature
 
       - name: install LLVM (Windows)
         if: startsWith(matrix.os, 'windows')
@@ -73,7 +75,11 @@ jobs:
           EXTRA=""
           if [ -f clang-cl.exe ]; then EXTRA="clang-cl.exe"; fi
           tar czf ${{ matrix.name }}_llvm.tar.gz LLVM.dll $EXTRA
-          sha256sum ${{ matrix.name }}_llvm.tar.gz | tee ${{ matrix.name }}_llvm.tar.gz.sha256
+          if command -v sha256sum >/dev/null; then
+            sha256sum ${{ matrix.name }}_llvm.tar.gz | tee ${{ matrix.name }}_llvm.tar.gz.sha256
+          else
+            shasum -a 256 ${{ matrix.name }}_llvm.tar.gz | tee ${{ matrix.name }}_llvm.tar.gz.sha256
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
